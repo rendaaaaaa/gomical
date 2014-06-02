@@ -15,21 +15,31 @@ use Mojo::URL;
 use List::AllUtils qw/any uniq/;
 use YAML;
 use Data::Section::Simple qw/get_data_section/;
-#{   
-#    package D;
-#    sub dump {
-#        require Data::Dumper;
-#        require Data::Recursive::Encode;
-#        my $text = Data::Dumper::Dumper(Data::Recursive::Encode->encode('utf8', $_[1]));
-#        die Encode::decode_utf8($text);    
-#    }
-#}
+
+#TODO: $confに突っ込む
 my $gomical_root = "http://www.city.sapporo.jp/seiso/kaisyu/yomiage/index.html";
 my $ua = Mojo::UserAgent->new->cookie_jar(Mojo::UserAgent::CookieJar->new);
 
-my @testdata = split /\n/, get_data_section('cal.txt');
-
 my $conf = {
+    split_ch => qr/。/,
+    normalize => [
+        {re => qr/燃やせるごみは、/, rep => "燃やせるごみは"},
+        {re => qr/、容器包装プラスチックは/, rep => "。容器包装プラスチックは"},
+    ],
+    rule => [
+        { method => 'weekly', pickup => 'びん・缶・ペットボトル', name => 'bin', },
+        { method => 'weekly', pickup => '容器包装プラスチック', name => 'pla', },
+        { method => 'weekly', pickup => '燃やせるごみ', name => 'moeru', },
+        { method => 'monthly', pickup => '枝・葉・草', name => 'eda', },
+        { method => 'monthly', pickup => '燃やせないごみ', name => 'moenai', },
+        { method => 'monthly', pickup => '雑がみ', name => 'kami', },
+        { method => 'daily', pickup => '収集日', name => 'shushu', },
+    ],
+    #action => ['bunseki'],
+    action => ['parse', 'bunseki'],
+};
+
+my $conf_bunseki = {
     split_ch => qr/。/,
     normalize => [
         {re => qr/燃やせるごみは、/, rep => "燃やせるごみは"},
@@ -37,27 +47,58 @@ my $conf = {
         {re => qr/\d+/, rep => "△"},
         {re => qr/[月火水木金]曜/, rep => "○曜"},
     ],
-    rule => [
-        { method => 'week', pickup => 'びん・缶・ペットボトル', name => 'bin', },
-        { method => 'week', pickup => '容器包装プラスチック', name => 'pla', },
-        { method => 'week', pickup => '燃やせるごみ', name => 'moeru', },
-        { method => 'month', pickup => '枝・葉・草', name => 'eda', },
-        { method => 'month', pickup => '燃やせないごみ', name => 'moenai', },
-        { method => 'month', pickup => '雑がみ', name => 'kami', },
-        { method => 'date', pickup => '収集日', name => 'date', },
-    ],
 };
+
+#TODO: テストデータの読込先を選べるようにする
+my @testdata = split /\n/, get_data_section('cal.txt');
 
 main: {
     my @cal_url = get_cal_url($gomical_root);
     #say pop @cal_url;
     #get_cal_string("http://www.city.sapporo.jp/seiso/kaisyu/yomiage/carender/10teine/10teine3.html");
-
     #for my $i(@cal_url) {
     #    get_cal_string_array($i);
     #}
 
+    #TODO: gomical_downloadをつくる
+    gomical_bunseki() if any {$_ eq 'bunseki'} @{$conf->{action}};
+    if (any {$_ eq 'parse'} @{$conf->{action}}) {
+        for my $s (@testdata) {
+            gomical_parse($s);
+        }
+    }
+}
+
+sub gomical_parse {
+    my ($gomical_str) = @_;
+    say "----- 1 -----";
+    say $gomical_str;
+    #TODO: $conf行き
+    my @h = qw/shushu moeru bin plas kami moenai eda/;
+    my @sp = gomical_split($gomical_str);
+    my $caldata = {};
+    for (0 .. (scalar @sp)-1) {
+        my $name = $h[$_];
+        my @actions = grep {$name eq $_->{name}} @{$conf->{rule}};
+        my $act = shift @actions;
+        next unless exists $act->{method};
+        if ($act->{method} eq 'daily') {
+            say "daily";
+            my ($erayear, $month) = $sp[$_] =~ /平成(\d+)年(\d+)月の/;
+            $caldata->{year} = $erayear + 1989;
+            $caldata->{month} = $month;
+        } elsif ($act->{method} eq 'week') {
+            #TODO:つくる
+        } elsif ($act->{method} eq 'month') {
+            #TODO:つくる
+        }
+    }
+    say Dump($caldata);
+}
+
+sub gomical_bunseki {
     my %checker;
+    #TODO: $conf行き
     my @h = qw/shushu moeru bin plas kami moenai eda/;
     for (@h) {
         $checker{$_} ||= {};
@@ -65,7 +106,7 @@ main: {
     #say dumper \%checker;
     for my $i(@testdata) {
         #gomical_parse($i);
-        my @sp = gomical_split($i);
+        my @sp = gomical_split_bunseki($i);
         #@sp = map { 
         #$_ =~ s/\d+/△/g; $_ =~ s/[月火水木金]曜/○曜/g; $_ 
         #} @sp;
@@ -77,6 +118,56 @@ main: {
     say Dump \%checker;
 }
 
+## ごみカレンダーの文字列を分解し、ごみ種別ごとに分ける
+## 分析用
+sub gomical_split_bunseki {
+    my ($s) = @_;
+
+    # 。で分割できるように整形
+    # $s =~ s/燃やせるごみは、/燃やせるごみは/g;
+    # $s =~ s/、容器包装プラスチックは/。容器包装プラスチックは/g;
+    for (@{$conf_bunseki->{normalize}}) {
+        $s =~ s/$_->{re}/$_->{rep}/g;
+    }
+
+    my @sp = split $conf_bunseki->{split_ch}, $s;
+    return @sp;
+}
+
+## ごみカレンダーの文字列を分解し、ごみ種別ごとに分ける
+sub gomical_split {
+    my ($s) = @_;
+
+    # 。で分割できるように整形
+    # $s =~ s/燃やせるごみは、/燃やせるごみは/g;
+    # $s =~ s/、容器包装プラスチックは/。容器包装プラスチックは/g;
+    for (@{$conf->{normalize}}) {
+        $s =~ s/$_->{re}/$_->{rep}/g;
+    }
+
+    my @sp = split $conf->{split_ch}, $s;
+    return @sp;
+}
+
+
+## ごみカレンダーの個別ページから、意味のある文字列を抜き取る。
+sub get_cal_string_array {
+    my ($url) = @_;
+    my $gomical_root = Mojo::URL->new($url);
+    my $dom = $ua->get($gomical_root)->res->dom;
+    #my $sel = 'a[href^="#h"]';
+    my $sel = 'a[id^="h"]';
+    my @result = ();
+    $dom->find($sel)->each(sub {
+            my $str = squish decode 'utf8', $_->next->next_sibling;
+            say $str;
+        });
+    #say dumper @result;
+    return @result;
+}
+
+
+## トップページからごみカレンダーのURL(区ごと)を得る
 sub get_ku_url {
     my ($url) = @_;
     my $gomical_root = Mojo::URL->new($url);
@@ -90,6 +181,8 @@ sub get_ku_url {
     return @ku;
 }
 
+
+## すべてのごみカレンダーURLを得る
 sub get_cal_url {
     my ($url) = @_;
     my @ku = get_ku_url($url);
@@ -107,35 +200,6 @@ sub get_cal_url {
     }
     #say dumper sort keys %chou;
     return sort keys %chou;
-}
-
-sub get_cal_string_array {
-    my ($url) = @_;
-    my $gomical_root = Mojo::URL->new($url);
-    my $dom = $ua->get($gomical_root)->res->dom;
-    #my $sel = 'a[href^="#h"]';
-    my $sel = 'a[id^="h"]';
-    my @result = ();
-    $dom->find($sel)->each(sub {
-            my $str = squish decode 'utf8', $_->next->next_sibling;
-            say $str;
-        });
-    #say dumper @result;
-    return @result;
-}
-
-sub gomical_split {
-    my ($s) = @_;
-
-    # 。で分割できるように整形
-    # $s =~ s/燃やせるごみは、/燃やせるごみは/g;
-    # $s =~ s/、容器包装プラスチックは/。容器包装プラスチックは/g;
-    for (@{$conf->{normalize}}) {
-        $s =~ s/$_->{re}/$_->{rep}/g;
-    }
-
-    my @sp = split $conf->{split_ch}, $s;
-    return @sp;
 }
 
 __DATA__
