@@ -78,19 +78,34 @@ sub gomical_parse {
     my @sp = gomical_split($gomical_str);
     my $caldata = {};
     for (0 .. (scalar @sp)-1) {
+        say "処理対象:";
+        say $sp[$_];
         my $name = $h[$_];
         my @actions = grep {$name eq $_->{name}} @{$conf->{rule}};
         my $act = shift @actions;
         next unless exists $act->{method};
+        say "モード: $act->{method}";
         if ($act->{method} eq 'daily') {
-            say "daily";
+            say "日付取得モード";
             my ($erayear, $month) = $sp[$_] =~ /平成(\d+)年(\d+)月の/;
             $caldata->{year} = $erayear + 1989;
             $caldata->{month} = $month;
-        } elsif ($act->{method} eq 'week') {
-            #TODO:つくる
-        } elsif ($act->{method} eq 'month') {
-            #TODO:つくる
+        } elsif ($act->{method} eq 'weekly') {
+            say "週次モード";
+            my @wday = $sp[$_] =~ m{
+                (?: #グループ化対象外
+                    (.)曜
+                )+
+            }gx;
+            say join ",", @wday;
+        } elsif ($act->{method} eq 'monthly') {
+            say "月次モード";
+            my @days = $sp[$_] =~ m{
+                (?: #グループ化対象外
+                \d+
+                )+
+            }gx;
+            say join ",", @days;
         }
     }
     say Dump($caldata);
@@ -103,13 +118,8 @@ sub gomical_bunseki {
     for (@h) {
         $checker{$_} ||= {};
     }
-    #say dumper \%checker;
     for my $i(@testdata) {
-        #gomical_parse($i);
         my @sp = gomical_split_bunseki($i);
-        #@sp = map { 
-        #$_ =~ s/\d+/△/g; $_ =~ s/[月火水木金]曜/○曜/g; $_ 
-        #} @sp;
         for (0 .. (scalar @sp)-1) {
             ${$checker{$h[$_]}}{$sp[$_]} ||= 0;
             ${$checker{$h[$_]}}{$sp[$_]}++;
@@ -120,6 +130,9 @@ sub gomical_bunseki {
 
 ## ごみカレンダーの文字列を分解し、ごみ種別ごとに分ける
 ## 分析用
+## 標準化のために曜日とおぼしき文字を○に、
+## 月、日をあらわす数字を△に置換して
+## 現れるパターンごとに何件あるかを集計している
 sub gomical_split_bunseki {
     my ($s) = @_;
 
