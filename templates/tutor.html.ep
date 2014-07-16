@@ -1,0 +1,19 @@
+% layout 'default';
+% title 'Welcome';
+<script type="text/javascript" src="/js/tutor.js"></script>
+<p>
+<form>
+    input: <input type="text" />
+    <input type="button" value="push" id="click1" />
+    <span data-bind="text: asdf"></span>
+</form>
+<pre><code class="javascript"> var vm = function() {
+    var self = this;
+    self.asdf = ko.observable();
+};
+ko.applyBindings(vm);
+</code></pre>
+</p>
+<p>
+<a href="<%= url_for("/") %>">Back</a>
+</p>

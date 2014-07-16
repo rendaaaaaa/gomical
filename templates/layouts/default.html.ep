@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title><%= title %></title>
+<script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/knockout/3.1.0/knockout-min.js"></script>
+<script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/datejs/1.0/date.min.js"></script>
+<script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.1/highlight.min.js"></script>
+<script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.1/languages/perl.min.js"></script>
+<script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.1/languages/javascript.min.js"></script>
+<script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.1/languages/xml.min.js"></script>
+<link href="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.1/styles/monokai.min.css" rel="stylesheet" />
+<style>
+code { font-size: 10pt };
+</style>
+<script>hljs.initHighlightingOnLoad();</script>
+</head>
+<body>
+<%= content %>
+</body>
+</html>
+

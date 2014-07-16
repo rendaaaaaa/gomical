@@ -1,0 +1,30 @@
+% layout 'default';
+% title 'Welcome';
+<script type="text/javascript" src="/js/app.js"></script>
+<p>
+<select data-bind="options: selectData, 
+    optionsText: 'name', 
+    value: selected1,
+    event: { change: updateCal('today') } "></select>
+</p>
+<p>
+<table>
+    <thead>
+        <tr><th>日付</th><th>ごみ種別</th></tr>
+    </thead>
+    <tbody data-bind="foreach: calDate">
+        <tr>
+            <td data-bind="text: date"></td>
+            <td data-bind="text: type"></td>
+        </tr>
+    </tbody>
+</table>
+<form>
+    <input data-bind="click: updateCal('prev')" type="button" id="prev"  value="&lt;&lt;" />
+    <input data-bind="click: updateCal('today')"  type="button" id="today" value="today"    />
+    <input data-bind="click: updateCal('next')"  type="button" id="next"  value="&gt;&gt;" />
+</form>
+</p>
+<p>
+<a href="<%= url_for("/tutor") %>">Knockout.js</a>
+</p>
